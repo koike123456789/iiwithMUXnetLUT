@@ -1,0 +1,30 @@
+# Benchmark "s27" written by ABC on Thu Jun 10 17:27:17 2021
+.model s27
+.inputs G0 G1 G2 G3
+.outputs G17
+
+.latch        n12         G5  2
+.latch        n17         G6  2
+.latch        n22         G7  2
+
+.names G0 new_G14_
+0 1
+.names n17 G17
+0 1
+.names new_G14_ G6 new_G8_
+11 1
+.names new_G12_ new_G8_ new_G15_
+00 0
+.names G3 new_G8_ new_G16_
+00 0
+.names new_G16_ new_G15_ new_G9_
+11 0
+.names new_G14_ n17 n12
+00 1
+.names G5 new_G9_ n17
+00 1
+.names G1 G7 new_G12_
+00 1
+.names G2 new_G12_ n22
+00 1
+.end

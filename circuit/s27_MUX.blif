@@ -1,0 +1,108 @@
+.model s27.blif
+.inputs s00 s01 s02 s10 s11 s12
+.inputs f0 f1 f2 f3
+.inputs G0 G1 G2 G3 G5 G6 G7
+.outputs out
+#.outputs G17
+#.latch    G10 G5   3
+#.latch    G11 G6   3
+#.latch    G13 G7   3
+
+# added circuit
+# first MUX output with INPUTS of FF
+.names s00 s01 s02 G10 G11 G13 i00
+001--1 1
+010-1- 1
+1001-- 1
+
+# second MUX output with INPUTS of FF
+.names s10 s11 s12 G10 G11 G13 i01
+001--1 1
+010-1- 1
+1001-- 1
+
+# first MUX output with OUTPUTS of FF
+.names s00 s01 s02 G5 G6 G7 i10
+001--1 1
+010-1- 1
+1001-- 1
+
+# second MUX output with OUTPUTS of FF
+.names s10 s11 s12 G5 G6 G7 i11
+001--1 1
+010-1- 1
+1001-- 1
+
+.names i00 i01 f0 f1 f2 f3 o0
+001--- 1
+01-1-- 1
+10--1- 1
+11---1 1
+
+.names i10 i11 f0 f1 f2 f3 o1
+001--- 1
+01-1-- 1
+10--1- 1
+11---1 1
+
+.names o0 o1 o
+#10 0
+01 0
+
+.names s00 s01 s02 c0
+100 1
+010 1
+001 1
+
+.names s10 s11 s12 c1
+100 1
+010 1
+001 1
+
+.names s00 s10 c2
+00 1
+01 1
+10 1
+
+.names s01 s11 c3
+00 1
+01 1
+10 1
+
+.names s02 s12 c4
+00 1
+01 1
+10 1
+
+.names f0 f1 f2 f3 c5
+1111 0
+0000 0
+
+.names o c0 c1 c2 c3 c4 c5 out
+1111111 1
+
+# original circuit
+.names G11 G17
+0 1
+.names G14 G11 G10
+00 1
+.names G5 G9 G11
+00 1
+.names G2 G12 G13
+00 1
+.names G0 G14
+0 1
+.names G14 G6 G8
+11 1
+.names G1 G7 G12
+00 1
+.names G12 G8 G15
+1- 1
+-1 1
+.names G3 G8 G16
+1- 1
+-1 1
+.names G16 G15 G9
+0- 1
+-0 1
+.end
