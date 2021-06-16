@@ -18,7 +18,9 @@ int main(int argc , char* argv[]){
 
     nodecircuit::Circuit circuit1;
     circuit1.ReadBlif(infile);
+    circuit1.outfile = outfile;
     circuit1.genQBF_withMUX();
+    // circuit1.WriteBlif(outfile);
 
     return 0 ; 
 }

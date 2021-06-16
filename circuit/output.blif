@@ -1,31 +1,13 @@
-.model s27
-.inputs  \
- G0 \
- G1 \
- G3 \
- G7
-.outputs  \
- G17
-.latch n12 G5
-.latch n17 G6
-#.latch n22 G7
-.names G0 new_G14_
-1 0
-.names G1 G7 new_G12_
-00 1
-.names new_G14_ G6 new_G8_
-11 1
-.names new_G12_ new_G8_ new_G15_
-00 0
-.names G3 new_G8_ new_G16_
-00 0
-.names new_G16_ new_G15_ new_G9_
-11 0
-.names G5 new_G9_ n17
-00 1
-.names n17 G17
-1 0
-.names new_G14_ n17 n12
-00 1
-.end
-
+.model LUT3
+.inputs in0 in1 in2
+.inputs LUT0 LUT1 LUT2 LUT3 LUT4 LUT5 LUT6 LUT7
+.outputs out
+.names in0 in1 in2 LUT0 LUT1 LUT2 LUT3 LUT4 LUT5 LUT6 LUT7
+000
+001
+010
+011
+100
+101
+110
+111

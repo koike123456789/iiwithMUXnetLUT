@@ -1,0 +1,2 @@
+.model LUT5
+.inputs in0 in1 in2 in3 in4

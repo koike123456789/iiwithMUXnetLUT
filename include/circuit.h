@@ -80,10 +80,8 @@ namespace nodecircuit {
     std::map<std::string, Node *> all_nodes_map;
 
 
-
-
-
-
+    // ==================== from here implemented koike ================================
+    std::string outfile;
 
     // find a node by name, returns NULL if not found
     Node *GetNode(std::string name) {
@@ -93,6 +91,8 @@ namespace nodecircuit {
       return NULL;
     }
   };
+
+  void make_LUT(std::string filename, long ninput);
 }
 
 #endif // _CIRCUIT_H_INCLUDED

@@ -16,6 +16,10 @@
 
 #include <cassert>
 
+#include <bitset>
+#include <boost/dynamic_bitset.hpp>
+#include <cmath>
+
 inline void ERR(std::string err_msg) {
   std::cerr << err_msg << std::endl;
 }

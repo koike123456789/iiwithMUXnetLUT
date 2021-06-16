@@ -7,12 +7,56 @@ using namespace std;
 
 namespace nodecircuit {
   void Circuit::genQBF_withMUX(){
-    for(long i = 0; i < inputs.size(); i++){
-      cout << inputs[i]->name << endl;
-    }
+    // for(long i = 0; i < inputs.size(); i++){
+    //   cout << inputs[i]->name << endl;
+    // }
+    // for(long i = 0; i < ffs.size(); i++){
+    //   cout << ffs[i]->name << endl;
+    // }
 
+    make_LUT(outfile,3);
     cout << "finish genQBF" << endl;
   }
+
+
+  void make_LUT(string filename,long ninput){
+    ofstream outfile(filename);
+    outfile << ".model LUT" << ninput << endl;
+    vector<string> vinputs;
+    // make inputs
+    outfile << ".inputs";
+    for(long i = 0; i < ninput; i++){
+      string input = "in" + to_string(i);
+      outfile << " " << input;
+      vinputs.push_back(input);
+    }
+    outfile << endl << ".inputs";
+    long npars = 1 << ninput;
+    cout << "npars = " << npars << endl;
+    for(long i = 0; i < npars; i++){
+      string input = "LUT" + to_string(i);
+      outfile << " LUT" << i ;
+      vinputs.push_back(input);
+    }
+    outfile << endl;
+
+    // make outputs
+    outfile << ".outputs out" << endl;
+
+    // make circuit body
+    outfile << ".names" ;
+    for(auto input : vinputs){outfile << " " << input;}
+    outfile << endl;
+    for(int i = 0; i < npars; i++){
+      boost::dynamic_bitset<> bs(ninput,i);
+      outfile << bs << endl;
+    }
+    cout << "finish make LUT" << endl;
+  }
+
+
+// ================================= from here ======================================
+// original cad contents
   int Circuit::ApplyInOutSimplify(ValVector &input_vals, ValVector &output_vals) {
     if (input_vals.size() > inputs.size() /*|| output_vals.size() != outputs.size()*/)
       return -1;
@@ -1075,23 +1119,15 @@ namespace nodecircuit {
     out_file_stream << ".model " << name << endl;
     out_file_stream << ".inputs ";
     for (i = 0; i < inputs.size(); i++){
-      if(inputs[i]->flag_X)continue;
       out_file_stream << " \\" << endl << " " << inputs[i]->name;
-    }
-    for(i = 0; i < ffs.size(); i++){
-      if(ffs[i]->ff_to_input){
-        out_file_stream << " \\" << endl << " " << ffs[i]->name;
-      }
     }
     out_file_stream << endl;
     out_file_stream << ".outputs ";
     for (i = 0; i < outputs.size(); i++){
-      if(outputs[i]->flag_X)continue;
       out_file_stream << " \\" << endl << " " << outputs[i]->name;
     }
     out_file_stream << endl;
     for (i = 0; i < ffs.size(); i++){
-      if(ffs[i]->flag_X){out_file_stream << "#";}
       out_file_stream << ".latch " << ffs[i]->inputs[0]->name << " " << ffs[i]->name << endl;
     }
     WriteBlifBody(out_file_stream);
@@ -1108,7 +1144,6 @@ namespace nodecircuit {
 
     for (i = 0; i < all_nodes.size(); i++) {
       Node *node = all_nodes[i];
-      if(node->flag_X)continue;
       if (node->type == NODE_ONE) {
         body << ".names " << node->name << endl << "1" << endl;
         continue;
