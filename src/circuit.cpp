@@ -7,7 +7,7 @@ using namespace std;
 
 #define MAX_MUXSIZE (100)
 namespace nodecircuit {
-  void Circuit::genQBF_withMUX(int lutsize){
+  string Circuit::genQBF_withMUX(int lutsize){
     int muxsize;
     if(ffs.size() < MAX_MUXSIZE){ muxsize = ffs.size();}
     else{ muxsize = MAX_MUXSIZE;}
@@ -17,10 +17,6 @@ namespace nodecircuit {
       ERR("| lutsize is set to be " + to_string(lutsize) + "(maximum)");
       }
     PrintVar(lutsize);
-    cout << "QBF parameter: " << endl;
-    cout << "| control para : " << muxsize*lutsize << endl;
-    cout << "|     lut para : " << (1 << lutsize) << endl;
-    cout << "|   total para : " << muxsize*lutsize + (1<<lutsize) << endl;
 
   // make each subckt
     string lut_file = "lut_size" + to_string(lutsize) + ".blif";
@@ -44,6 +40,7 @@ namespace nodecircuit {
     string cmd = "cat " + main_file + " " + opt_lut_file + " " + opt_mux_file  + " " + opt_checkonehot_file;
     cmd += " " + opt_checkatmost1_file + " > " + outfile;
     system(cmd.c_str());
+    string opt_outfile = apply_abcopt(outfile,50);
 
   // arrangement of files
     string dir_arrange = "tmpfile";
@@ -52,12 +49,16 @@ namespace nodecircuit {
     cmd = "mv " + lut_file + " " + opt_lut_file + " " + mux_file + " " + opt_mux_file;
     cmd += " " + checkonehot_file + " " + opt_checkonehot_file;
     cmd += " " + checkatmost1_file + " " + opt_checkatmost1_file;
-    cmd += " " + main_file;
+    cmd += " " + main_file + " " + outfile;
     cmd += " ./" + dir_arrange; 
     system(cmd.c_str());
 
-
+    cout << "QBF parameter: " << endl;
+    cout << "| control para : " << muxsize*lutsize << endl;
+    cout << "|     lut para : " << (1 << lutsize) << endl;
+    cout << "|   total para : " << muxsize*lutsize + (1<<lutsize) << endl;
     cout << "finish genQBF" << endl;
+    return opt_outfile;
   }
 
   void Circuit::write_genqbfblif(string filename, int lutsize, int muxsize){

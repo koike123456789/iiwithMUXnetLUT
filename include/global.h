@@ -20,6 +20,8 @@
 #include <boost/dynamic_bitset.hpp>
 #include <cmath>
 
+using namespace std;
+
 #define PrintVar(var) std::cout << #var << "=" << var << std::endl;
 
 

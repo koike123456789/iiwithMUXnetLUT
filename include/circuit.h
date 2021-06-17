@@ -68,7 +68,7 @@ namespace nodecircuit {
     int Simplify(NodeVector& target_nodes);
     int ApplyInOutSimplify(ValVector &input_vals, ValVector &output_vals);
 
-    void genQBF_withMUX(int lutsize);
+    std::string genQBF_withMUX(int lutsize);
     void write_genqbfblif(std::string filename, int lutsize, int muxsize);
 
   public:

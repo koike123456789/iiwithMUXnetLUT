@@ -1,7 +1,5 @@
 #include "node.h"
 
-using namespace std;
-
 namespace nodecircuit {
   int BlifNode::CreateCodedValues() {
     int res = 0;

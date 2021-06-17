@@ -1,6 +1,8 @@
 #include "circuit.h"
 #include "global.h"
 #include "node.h"
+#include "applyABC.h"
+
 
 int main(int argc , char* argv[]){
     if(argc != 3 && argc != 4){
@@ -17,8 +19,11 @@ int main(int argc , char* argv[]){
     nodecircuit::Circuit circuit1;
     circuit1.ReadBlif(infile);
     circuit1.outfile = outfile;
-    circuit1.genQBF_withMUX(lutsize);
-    // circuit1.WriteBlif(outfile);
+
+
+    string opt_filename = circuit1.genQBF_withMUX(lutsize);
+    Abc_qbf(opt_filename);
+
 
     return 0 ; 
 }
