@@ -5,21 +5,213 @@ using namespace std;
 
 #include "blif_parser.h"
 
+#define MAX_MUXSIZE (100)
 namespace nodecircuit {
-  void Circuit::genQBF_withMUX(){
-    // for(long i = 0; i < inputs.size(); i++){
-    //   cout << inputs[i]->name << endl;
-    // }
-    // for(long i = 0; i < ffs.size(); i++){
-    //   cout << ffs[i]->name << endl;
-    // }
+  void Circuit::genQBF_withMUX(int lutsize){
+    int muxsize;
+    if(ffs.size() < MAX_MUXSIZE){ muxsize = ffs.size();}
+    else{ muxsize = MAX_MUXSIZE;}
+    if(lutsize >= ffs.size()){ 
+      ERR("ERR : lutsize exceeds number of ffs");
+      lutsize = ffs.size() - 1;
+      ERR("| lutsize is set to be " + to_string(lutsize) + "(maximum)");
+      }
+    PrintVar(lutsize);
+    cout << "QBF parameter: " << endl;
+    cout << "| control para : " << muxsize*lutsize << endl;
+    cout << "|     lut para : " << (1 << lutsize) << endl;
+    cout << "|   total para : " << muxsize*lutsize + (1<<lutsize) << endl;
 
-    make_LUT(outfile,3);
+  // make each subckt
+    string lut_file = "lut_size" + to_string(lutsize) + ".blif";
+    string mux_file = "mux_size" + to_string(muxsize) + ".blif";
+    string checkonehot_file = "checkonehot_size" + to_string(muxsize) + ".blif";
+    string checkatmost1_file = "checkatmost1_size" + to_string(lutsize) + ".blif";
+    vinputs_original_lut = make_LUT(lut_file,lutsize);
+    vinputs_original_mux = make_MUX(mux_file,muxsize);
+    vinputs_original_checkonehot = make_checkonehot(checkonehot_file,muxsize);
+    vinputs_original_checkatmost1 = make_checkonehot(checkatmost1_file,lutsize,true);
+  // make optimized circuit with abc
+    string opt_lut_file = apply_abcopt(lut_file);
+    string opt_mux_file = apply_abcopt(mux_file);
+    string opt_checkonehot_file = apply_abcopt(checkonehot_file);
+    string opt_checkatmost1_file = apply_abcopt(checkatmost1_file);
+  // write genqbf with mux net blif file
+    string main_file = name + "_main.blif"; 
+    write_genqbfblif(main_file,lutsize,muxsize);
+
+  // integrate all file into one file 
+    string cmd = "cat " + main_file + " " + opt_lut_file + " " + opt_mux_file  + " " + opt_checkonehot_file;
+    cmd += " " + opt_checkatmost1_file + " > " + outfile;
+    system(cmd.c_str());
+
+  // arrangement of files
+    string dir_arrange = "tmpfile";
+    cmd = "mkdir -p " + dir_arrange;
+    system(cmd.c_str());
+    cmd = "mv " + lut_file + " " + opt_lut_file + " " + mux_file + " " + opt_mux_file;
+    cmd += " " + checkonehot_file + " " + opt_checkonehot_file;
+    cmd += " " + checkatmost1_file + " " + opt_checkatmost1_file;
+    cmd += " " + main_file;
+    cmd += " ./" + dir_arrange; 
+    system(cmd.c_str());
+
+
     cout << "finish genQBF" << endl;
   }
 
+  void Circuit::write_genqbfblif(string filename, int lutsize, int muxsize){
+    boost::dynamic_bitset<> bs(1);
 
-  void make_LUT(string filename,long ninput){
+    ofstream outf(filename);
+    vector<vector<string>> vvinputs_mux;
+    vector<string> vinputs_lut;
+    outf << ".model " << name << "_genqbf" << lutsize << "withMUXnet" << endl;
+  // make control val 
+    for(int idmux = 0; idmux < lutsize; idmux++){
+      outf << ".inputs";
+      vector<string> vinputs_eachmux;
+      for(int idctl = 0; idctl < muxsize; idctl++){
+        string input = "ctl" + to_string(idmux) + "_" + to_string(idctl);
+        outf << " " << input;
+        vinputs_eachmux.push_back(input);
+        }
+        vvinputs_mux.push_back(vinputs_eachmux);
+      outf << endl;
+    }
+  // make LUT val
+    outf << ".inputs";
+    for(int i = 0; i < (1 << lutsize); i++){
+      string input = "lut" + to_string(i);
+      outf << " " << input;
+      vinputs_lut.push_back(input);
+      }
+    outf << endl;
+  // orginal PI and LO
+    outf  << ".inputs";
+    for(auto pi : inputs){outf << " " << pi->name;}
+    outf << endl;
+    outf << ".inputs";
+    for(auto lo : ffs){outf << " " << lo->name;}
+    outf << endl;
+  // new output
+    outf << ".outputs out" << endl;
+
+  // make subcircuit in LI or LO side
+    vector<string> voutputs_mux_LOside,voutputs_mux_LIside;
+    for(int LIside = 0; LIside < 2; LIside++){
+      if(LIside == true){ outf << "#LI side subcircuit(LUT with MUXnet)" << endl;}
+      else{outf << "#LO side subcircuit(LUT with MUXnet)" << endl;}
+      for(int idmux = 0; idmux < vvinputs_mux.size(); idmux++){
+        outf << ".subckt MUXnet";
+        for(int idctl = 0; idctl < vvinputs_mux[0].size(); idctl++){
+          outf << " " << vinputs_original_mux[idctl];
+          outf << "=" << vvinputs_mux[idmux][idctl]; 
+        }
+        for(int idff = 0; idff < muxsize; idff++){
+          outf << " " << vinputs_original_mux[muxsize + idff];
+          if(LIside){outf << "=" << ffs[idff]->inputs[0]->name;}
+          else{outf << "=" << ffs[idff]->name;}
+        }
+
+        if(LIside){
+          string output = "outmux_LI" + to_string(idmux);
+          outf << " out=" + output;
+          voutputs_mux_LIside.push_back(output);
+        }else{
+          string output = "outmux_LO" + to_string(idmux);
+          outf << " out=" + output;
+          voutputs_mux_LOside.push_back(output);
+        }
+        outf << endl;
+      }
+    // make subcitcuit of LUT
+      outf << ".subckt LUT" << lutsize;
+      for(int i = 0; i < lutsize; i++){
+        if(LIside){
+          outf << " " << vinputs_original_lut[i] << "=" << voutputs_mux_LIside[i];
+        }else{
+          outf << " " << vinputs_original_lut[i] << "=" << voutputs_mux_LOside[i];
+        }
+      }
+      for(int i = 0; i < (1 << lutsize); i++ ){
+        outf << " " << vinputs_original_lut[lutsize+i] << "=" << vinputs_lut[i];
+      }
+      if(LIside){outf << " out=outlut_LIside";}
+      else{outf << " out=outlut_LOside";}
+      outf << endl;
+    }
+
+  // make onehot constraint (ctl is onehot)
+    vector<string> voutputs_onehot;
+    outf << "#onehot constraint (ctl is onehot)" << endl;
+    for(int idmux = 0; idmux < lutsize; idmux++){
+      outf << ".subckt check_onehot";
+      for(int idctl = 0; idctl < muxsize; idctl++){
+        outf << " " << vinputs_original_checkonehot[idctl] << "=" << vvinputs_mux[idmux][idctl];
+      }
+      string output = "outonehot" + to_string(idmux);
+      outf << " out=" << output << endl;
+      voutputs_onehot.push_back(output); 
+    }
+  // make onehot constraint (not select the same ctl signal)
+    vector<string> voutputs_atmost1;
+    outf <<  "#at most 1 constraint (not select the same ffs)" << endl;
+    for(int idctl = 0; idctl < muxsize; idctl++){
+      outf << ".subckt check_atmost1";
+      for(int idmux = 0; idmux < lutsize; idmux++){
+        if(idmux < muxsize) {outf << " " << vinputs_original_checkonehot[idmux] << "=" << vvinputs_mux[idmux][idctl];}
+        else{outf << " " << vinputs_original_checkonehot[idmux] << "=0";}
+      }
+      string output = "outatmost1_" + to_string(idctl);
+      outf << " out=" << output << endl;
+      voutputs_atmost1.push_back(output);
+    }
+
+  // make all constraint
+    outf << endl << "#collect all constraint" << endl;
+    outf << ".names";
+    for(auto outonehot : voutputs_onehot){ outf << " " << outonehot;}
+    outf << " cst_onehot" << endl;
+    bs.resize(voutputs_onehot.size());
+    bs.set();
+    outf << bs << " 1" << endl;
+
+    outf << ".names";
+    for(auto vallut : vinputs_lut){ outf << " " << vallut;}
+    outf << " cst_vallut" << endl;
+    bs.resize(vinputs_lut.size());
+    bs.set();
+    outf << bs << " 0" << endl;
+    outf << "0";
+    for(int i = 0; i < vinputs_lut.size() - 1; i++){outf << "-";}
+    outf << " 0" << endl;
+
+    outf << ".names";
+    for(auto outatmost1 : voutputs_atmost1){ outf << " " << outatmost1;}
+    outf << " cst_atmost1" << endl;
+    bs.resize(voutputs_atmost1.size());
+    bs.set();
+    outf << bs << " 1" << endl;
+
+    outf << ".names outlut_LIside outlut_LOside cst_ii" << endl;
+    outf << "01 0" << endl;
+
+    outf << "#final constraint" << endl;
+    outf << ".names cst_onehot cst_vallut cst_atmost1 cst_ii out" << endl;
+    outf << "1111 1" << endl;
+
+  // from here original circuit 
+    outf << endl << "# from here original circuit" << endl;
+    WriteBlifBody(outf);
+    outf << ".end" << endl;
+    outf.close();
+  }
+
+
+
+
+  vector<string> make_LUT(string filename,long ninput){
     ofstream outfile(filename);
     outfile << ".model LUT" << ninput << endl;
     vector<string> vinputs;
@@ -32,7 +224,6 @@ namespace nodecircuit {
     }
     outfile << endl << ".inputs";
     long npars = 1 << ninput;
-    cout << "npars = " << npars << endl;
     for(long i = 0; i < npars; i++){
       string input = "LUT" + to_string(i);
       outfile << " LUT" << i ;
@@ -46,12 +237,102 @@ namespace nodecircuit {
     // make circuit body
     outfile << ".names" ;
     for(auto input : vinputs){outfile << " " << input;}
-    outfile << endl;
+    outfile << " out" << endl;
     for(int i = 0; i < npars; i++){
       boost::dynamic_bitset<> bs(ninput,i);
-      outfile << bs << endl;
+      outfile << bs;
+      for(int j = 0 ; j < npars; j++){
+        if(i == j) outfile << "1";
+        else outfile << "-";
+      }
+      outfile << " 1" <<endl;
     }
+    outfile << ".end";
     cout << "finish make LUT" << endl;
+
+    return vinputs;
+  }
+
+// MUX selecting (ninput val -> 1 val)
+  vector<string> make_MUX(string filename, long ninput){
+    ofstream outfile(filename);
+    vector<string> vinputs;
+    outfile << ".model MUXnet" << endl;
+    outfile << ".inputs";
+    for(int i = 0; i < ninput; i++){
+      string input = "ctl" + to_string(i);
+      outfile << " " << input;
+      vinputs.push_back(input);
+    }
+    outfile << endl << ".inputs";
+    for(int i = 0; i < ninput; i++){
+      string input = "in" + to_string(i);
+      outfile << " " << input;
+      vinputs.push_back(input);
+    }
+
+    outfile << endl << ".outputs out" << endl;
+
+    outfile << ".names";
+    for(auto input : vinputs){
+      outfile << " " << input;
+    }
+    outfile << " out" << endl;
+    boost::dynamic_bitset bs(ninput,1);
+    for(int i = 0; i < ninput; i++){
+      outfile << (bs << i) ;
+      for(int j = 0 ; j < ninput ; j++){
+        if(i == ninput - j - 1){ outfile << "1";}
+        else{outfile << "-";}
+      }
+      outfile << " 1" << endl;
+    }
+    outfile << ".end";
+
+    return vinputs;
+  }
+
+  vector<string> make_checkonehot(std::string filename, long ninput, bool atmost1){
+    ofstream outfile(filename);
+    vector<string> vinputs;
+    if(atmost1){outfile << ".model check_atmost1" << endl;}
+    else{outfile << ".model check_onehot" << endl;}
+    outfile << ".inputs";
+    for(int i = 0 ; i < ninput ; i++){
+      string input = "in"  + to_string(i);
+      outfile << " " << input;
+      vinputs.push_back(input);
+    }
+    outfile << endl << ".outputs out" << endl;
+    outfile << ".names";
+    for(auto input : vinputs){
+      outfile << " " << input;
+    }
+    outfile << " out" << endl;
+    boost::dynamic_bitset bs(ninput,1);
+    for(int i = 0; i < ninput; i++){
+      outfile << (bs << i) << " 1" << endl;
+    }
+    if(atmost1){outfile << bs.reset() << " 1" << endl;}
+    outfile << ".end";
+    return vinputs;
+  }
+
+  string apply_abcopt(string filename, int ntime){
+    string total_cmd, prefix_cmd,body_cmd,suffix_cmd;
+    prefix_cmd = "abc -c \"read " + filename + ";";
+    suffix_cmd = "\"";
+    body_cmd = " strash;";
+    for(int i = 0 ; i < ntime; i++){
+      body_cmd += " dc2;";
+    }
+    string opt_filename = "opt_" + filename;
+    body_cmd += " write " + opt_filename + ";";
+    total_cmd = prefix_cmd + body_cmd + suffix_cmd;
+    // cout << total_cmd << endl;
+    system(total_cmd.c_str());
+
+    return opt_filename;
   }
 
 

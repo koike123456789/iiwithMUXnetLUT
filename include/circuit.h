@@ -68,7 +68,8 @@ namespace nodecircuit {
     int Simplify(NodeVector& target_nodes);
     int ApplyInOutSimplify(ValVector &input_vals, ValVector &output_vals);
 
-    void genQBF_withMUX();
+    void genQBF_withMUX(int lutsize);
+    void write_genqbfblif(std::string filename, int lutsize, int muxsize);
 
   public:
     std::string name;
@@ -82,6 +83,9 @@ namespace nodecircuit {
 
     // ==================== from here implemented koike ================================
     std::string outfile;
+    std::vector<std::string> vinputs_original_lut, vinputs_original_mux;
+    std::vector<std::string> vinputs_original_checkonehot, vinputs_original_checkatmost1;
+
 
     // find a node by name, returns NULL if not found
     Node *GetNode(std::string name) {
@@ -92,7 +96,11 @@ namespace nodecircuit {
     }
   };
 
-  void make_LUT(std::string filename, long ninput);
+  std::vector<std::string> make_LUT(std::string filename, long ninput);
+  std::vector<std::string> make_MUX(std::string filenmae, long ninput);
+  std::vector<std::string> make_checkonehot(std::string filename, long ninput, bool atmost1 = false);
+
+  std::string apply_abcopt(std::string filename, int ntime = 10);
 }
 
 #endif // _CIRCUIT_H_INCLUDED

@@ -30,7 +30,8 @@ CXX = g++
 CXX_FLAGS = -W -Wall -Wextra -s -g -O3 -static -std=c++17 -DABC_NAMESPACE=ABC -DLIN64
 INC_FLAGS = $(addprefix -I,$(INC_DIRS))
 LD_FLAGS = -static
-LIB_FLAGS = -Wl,--whole-archive -lpthread -Wl,--no-whole-archive -lreflex -lm -ldl -rdynamic -lz
+# LIB_FLAGS = -Wl,--whole-archive -lpthread -Wl,--no-whole-archive -lreflex -lm -ldl -rdynamic -lz
+LIB_FLAGS = -Wl,--whole-archive -lpthread -Wl,--no-whole-archive -lreflex -lm -ldl -rdynamic
 
 # collect sources ...
 SRCS = $(shell find $(SRC_DIR) -name "*.cpp")

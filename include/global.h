@@ -20,6 +20,9 @@
 #include <boost/dynamic_bitset.hpp>
 #include <cmath>
 
+#define PrintVar(var) std::cout << #var << "=" << var << std::endl;
+
+
 inline void ERR(std::string err_msg) {
   std::cerr << err_msg << std::endl;
 }
