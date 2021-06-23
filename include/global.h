@@ -19,11 +19,13 @@
 #include <bitset>
 #include <boost/dynamic_bitset.hpp>
 #include <cmath>
+#include <algorithm>
+#include <filesystem>
 
 using namespace std;
 
 #define PrintVar(var) std::cout << #var << "=" << var << std::endl;
-
+#define SUBDIR (string)"./tmpfile/"
 
 inline void ERR(std::string err_msg) {
   std::cerr << err_msg << std::endl;
@@ -32,5 +34,7 @@ inline void ERR(std::string err_msg) {
 inline void MSG(std::string err_msg) {
   std::cout << err_msg << std::endl;
 }
+
+int print_usage(const char* optstring);
 
 #endif // _GLOBAL_H_INCLUDED

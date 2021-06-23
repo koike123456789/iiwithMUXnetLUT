@@ -5,18 +5,41 @@ using namespace std;
 
 #include "blif_parser.h"
 
-#define MAX_MUXSIZE (100)
+#define MAX_MUXSIZE (500)
+
 namespace nodecircuit {
-  string Circuit::genQBF_withMUX(int lutsize){
-    int muxsize;
-    if(ffs.size() < MAX_MUXSIZE){ muxsize = ffs.size();}
-    else{ muxsize = MAX_MUXSIZE;}
-    if(lutsize >= ffs.size()){ 
+  string Circuit::genQBF_withMUX(int lutsize, int muxsize, bool fUseout, bool fverbose){
+    if(muxsize < 0){muxsize = ffs.size();}
+
+    for(int i = 0 ; i < ffs.size() ; i++){
+      cout << ffs[i]->name << " " << ffs[i]->inputs[0]->type << endl;
+    }
+
+    if(lutsize > ffs.size()){ 
       ERR("ERR : lutsize exceeds number of ffs");
-      lutsize = ffs.size() - 1;
+      lutsize = ffs.size();
       ERR("| lutsize is set to be " + to_string(lutsize) + "(maximum)");
       }
-    PrintVar(lutsize);
+    if(muxsize > ffs.size() || lutsize > muxsize){
+      ERR("ERR : muxsize exceeds number of ffs (or MAX_MUXSIZE) or less than lutsize");
+      muxsize = (ffs.size() > MAX_MUXSIZE) ? MAX_MUXSIZE : ffs.size();
+      ERR("| muxsize is set to be " + to_string(muxsize) + "(maximum)");
+    }
+
+    if(fverbose){
+      print_circuitinfo();
+      cout << "================== Each size  ==================" << endl;
+      cout << "| muxsize = " << muxsize << endl;
+      cout << "| lutsize = " << lutsize << endl;
+      cout << "================================================" << endl;
+    }
+    cout << "================ QBF parameter ================" << endl;
+    npara_ctl = muxsize*lutsize;
+    npara_lut = (1 << lutsize);
+    cout << "| control para : " << npara_ctl << endl;
+    cout << "|     lut para : " << npara_lut << endl;
+    cout << "|   total para : " << npara_ctl + npara_lut << endl;
+    cout << "===============================================" << endl;
 
   // make each subckt
     string lut_file = "lut_size" + to_string(lutsize) + ".blif";
@@ -34,7 +57,7 @@ namespace nodecircuit {
     string opt_checkatmost1_file = apply_abcopt(checkatmost1_file);
   // write genqbf with mux net blif file
     string main_file = name + "_main.blif"; 
-    write_genqbfblif(main_file,lutsize,muxsize);
+    write_genqbfblif(main_file,lutsize,muxsize,fUseout);
 
   // integrate all file into one file 
     string cmd = "cat " + main_file + " " + opt_lut_file + " " + opt_mux_file  + " " + opt_checkonehot_file;
@@ -53,16 +76,15 @@ namespace nodecircuit {
     cmd += " ./" + dir_arrange; 
     system(cmd.c_str());
 
-    cout << "QBF parameter: " << endl;
-    cout << "| control para : " << muxsize*lutsize << endl;
-    cout << "|     lut para : " << (1 << lutsize) << endl;
-    cout << "|   total para : " << muxsize*lutsize + (1<<lutsize) << endl;
-    cout << "finish genQBF" << endl;
+    cout << "finish genqbf blif file" << endl;
     return opt_outfile;
   }
 
-  void Circuit::write_genqbfblif(string filename, int lutsize, int muxsize){
+  void Circuit::write_genqbfblif(string filename, int lutsize, int muxsize, bool fUseout){
     boost::dynamic_bitset<> bs(1);
+  // check error 
+    // if(fUseout){assert(outputs.size() == 1);}
+    assert(muxsize >= lutsize);
 
     ofstream outf(filename);
     vector<vector<string>> vvinputs_mux;
@@ -126,7 +148,7 @@ namespace nodecircuit {
         }
         outf << endl;
       }
-    // make subcitcuit of LUT
+    // make subcircuit of LUT
       outf << ".subckt LUT" << lutsize;
       for(int i = 0; i < lutsize; i++){
         if(LIside){
@@ -195,8 +217,16 @@ namespace nodecircuit {
     bs.set();
     outf << bs << " 1" << endl;
 
-    outf << ".names outlut_LIside outlut_LOside cst_ii" << endl;
-    outf << "01 0" << endl;
+    if(!fUseout){
+      outf << ".names outlut_LIside outlut_LOside cst_ii" << endl;
+      outf << "01 0" << endl;
+    }else{
+      string out_property = outputs[0]->name;
+      outf << ".names outlut_LIside outlut_LOside " << out_property; 
+      outf << " cst_ii" << endl;
+      outf << "01- 0" << endl;
+      outf << "111 0" << endl;
+    }
 
     outf << "#final constraint" << endl;
     outf << ".names cst_onehot cst_vallut cst_atmost1 cst_ii out" << endl;
@@ -208,9 +238,6 @@ namespace nodecircuit {
     outf << ".end" << endl;
     outf.close();
   }
-
-
-
 
   vector<string> make_LUT(string filename,long ninput){
     ofstream outfile(filename);
@@ -237,7 +264,11 @@ namespace nodecircuit {
 
     // make circuit body
     outfile << ".names" ;
-    for(auto input : vinputs){outfile << " " << input;}
+    // for(auto input : vinputs){outfile << " " << input;}
+    for(int i = 0; i < vinputs.size(); i++){
+      if(i < ninput){ outfile << " " << vinputs[ninput - 1 - i];}
+      else{ outfile << " " << vinputs[i];}
+    }
     outfile << " out" << endl;
     for(int i = 0; i < npars; i++){
       boost::dynamic_bitset<> bs(ninput,i);
@@ -279,7 +310,7 @@ namespace nodecircuit {
       outfile << " " << input;
     }
     outfile << " out" << endl;
-    boost::dynamic_bitset bs(ninput,1);
+    boost::dynamic_bitset<> bs(ninput,1);
     for(int i = 0; i < ninput; i++){
       outfile << (bs << i) ;
       for(int j = 0 ; j < ninput ; j++){
@@ -310,7 +341,7 @@ namespace nodecircuit {
       outfile << " " << input;
     }
     outfile << " out" << endl;
-    boost::dynamic_bitset bs(ninput,1);
+    boost::dynamic_bitset<> bs(ninput,1);
     for(int i = 0; i < ninput; i++){
       outfile << (bs << i) << " 1" << endl;
     }
@@ -319,26 +350,199 @@ namespace nodecircuit {
     return vinputs;
   }
 
-  string apply_abcopt(string filename, int ntime){
-    string total_cmd, prefix_cmd,body_cmd,suffix_cmd;
-    prefix_cmd = "abc -c \"read " + filename + ";";
-    suffix_cmd = "\"";
-    body_cmd = " strash;";
-    for(int i = 0 ; i < ntime; i++){
-      body_cmd += " dc2;";
-    }
-    string opt_filename = "opt_" + filename;
-    body_cmd += " write " + opt_filename + ";";
-    total_cmd = prefix_cmd + body_cmd + suffix_cmd;
-    // cout << total_cmd << endl;
-    system(total_cmd.c_str());
-
-    return opt_filename;
+  void Circuit::print_circuitinfo(){
+    cout << "================ Circuit Info ==================" << endl;
+    cout << "|           name = " << name << endl;
+    cout << "|           Gate = " << all_nodes.size() << endl;
+    cout << "| Inputs/Outputs = " << inputs.size() << "/" << outputs.size() << endl;
+    cout << "|            FFs = " << ffs.size() << endl;
+    cout << "================================================" << endl;
   }
 
-
-// ================================= from here ======================================
+// ================================= from here ==================================================================
 // original cad contents
+  int Circuit::ReadBlif(string filename, bool simplify, bool levelize_sort, bool ignore_1input) {
+    Clear();
+
+    FILE *infile = fopen(filename.c_str(), "r");
+    if (!infile) {
+      ERR("cannot open input file: " + filename);
+      return 0;
+    }
+    ofstream parser_log("parser.log");
+    blifparser::BL_LEXER ilexer(infile, parser_log);
+    ilexer.circuit = this;
+    ilexer.bl_lex();
+    fclose(infile);
+    parser_log.close();
+
+    system("rm parser.log");
+
+    CreateCodedBlifValues();
+    ConvertEquivalentTypeBlif();
+
+    if (simplify) {
+      LevelizeSortTopological(false);
+      RemoveBufNot();
+      Simplify();
+      LevelizeSortTopological(false);
+    }
+    else if (levelize_sort) {
+      LevelizeSortTopological(ignore_1input);
+    }
+
+    SetIndexes();
+
+    return 1;
+  }
+
+  int Circuit::WriteBlif(string filename) {
+    ofstream out_file_stream(filename);
+    if (!out_file_stream.is_open())
+      return 0;
+
+    long i, j, k;
+
+    out_file_stream << ".model " << name << endl;
+    out_file_stream << ".inputs ";
+    for (i = 0; i < inputs.size(); i++){
+      out_file_stream << " \\" << endl << " " << inputs[i]->name;
+    }
+    out_file_stream << endl;
+    out_file_stream << ".outputs ";
+    for (i = 0; i < outputs.size(); i++){
+      out_file_stream << " \\" << endl << " " << outputs[i]->name;
+    }
+    out_file_stream << endl;
+    for (i = 0; i < ffs.size(); i++){
+      out_file_stream << ".latch " << ffs[i]->inputs[0]->name << " " << ffs[i]->name << endl;
+    }
+    WriteBlifBody(out_file_stream);
+
+    out_file_stream << ".end" << endl;
+    out_file_stream << endl;
+
+    out_file_stream.close();
+    return 0;
+  }
+
+  int Circuit::WriteBlifBody(ostream &body) {
+    long i, j, k;
+
+    for (i = 0; i < all_nodes.size(); i++) {
+      Node *node = all_nodes[i];
+      if (node->type == NODE_ONE) {
+        body << ".names " << node->name << endl << "1" << endl;
+        continue;
+      }
+      if (node->type == NODE_ZERO) {
+        body << ".names " << node->name << endl << "0" << endl;
+        continue;
+      }
+      if (node->is_input)
+        continue;
+      if (node->type == NODE_DFF)
+        continue;
+      body << ".names";
+      for (j = 0; j < node->inputs.size(); j++)
+        body << " " << node->inputs[j]->name;
+      body << " " << node->name << endl;
+      switch (node->type) {
+        case NODE_BUF:
+          body << "1 1" << endl;
+          break;
+        case NODE_NOT:
+          body << "1 0" << endl;
+          break;
+        case NODE_AND:
+          for (k = 0; k < node->inputs.size(); k++)
+            body << "1";
+          body << " 1" << endl;
+          break;
+        case NODE_NAND:
+          for (k = 0; k < node->inputs.size(); k++)
+            body << "1";
+          body << " 0" << endl;
+          break;
+        case NODE_OR:
+          for (k = 0; k < node->inputs.size(); k++)
+            body << "0";
+          body << " 0" << endl;
+          break;
+        case NODE_NOR:
+          for (k = 0; k < node->inputs.size(); k++)
+            body << "0";
+          body << " 1" << endl;
+          break;
+        case NODE_XOR:
+          switch (node->inputs.size()) {
+            case 2:
+              body << "10 1" << endl;
+              body << "01 1" << endl;
+              break;
+            case 3:
+              body << "100 1" << endl;
+              body << "010 1" << endl;
+              body << "001 1" << endl;
+              body << "111 1" << endl;
+              break;
+              // TODO: for larger XORs
+          }
+          break;
+        case NODE_XNOR:
+          switch (node->inputs.size()) {
+            case 2:
+              body << "10 0" << endl;
+              body << "01 0" << endl;
+              break;
+            case 3:
+              body << "100 0" << endl;
+              body << "010 0" << endl;
+              body << "001 0" << endl;
+              body << "111 0" << endl;
+              break;
+              // TODO: for larger XNORs
+          }
+          break;
+        case NODE_AND2_NP:
+          body << "01 1" << endl;
+          break;
+        case NODE_NAND2_NP:
+          body << "01 0" << endl;
+          break;
+        case NODE_AND2_PN:
+          body << "10 1" << endl;
+          break;
+        case NODE_NAND2_PN:
+          body << "10 0" << endl;
+          break;
+        case NODE_ONE:
+          body << "1" << endl;
+          break;
+        case NODE_ZERO:
+          body << "0" << endl;
+          break;
+        case NODE_BLIF:
+          for (k = 0; k < ((BlifNode *) node)->str_values.size(); k++)
+            body << ((BlifNode *) node)->str_values[k] << endl;
+          //for (set<uint64_t>::iterator iter = ((BlifNode*)node)->coded_values.begin(); iter != ((BlifNode*)node)->coded_values.end() ; ++iter)
+          //  out_file_stream << hex << *iter << endl;
+          break;
+        default:
+          for (k = 0; k < node->inputs.size(); k++)
+            body << "-";
+          body << " 0" << endl;
+          body << "# err " << node->type << endl;
+          // this case should not happen
+          // TODO: check why this case has happened
+      }
+    }
+
+    return 0;
+  }
+
+  //======================================= Not used code =====================================================
+
   int Circuit::ApplyInOutSimplify(ValVector &input_vals, ValVector &output_vals) {
     if (input_vals.size() > inputs.size() /*|| output_vals.size() != outputs.size()*/)
       return -1;
@@ -1391,145 +1595,6 @@ namespace nodecircuit {
     return 0;
   }
 
-  int Circuit::WriteBlif(string filename) {
-    ofstream out_file_stream(filename);
-    if (!out_file_stream.is_open())
-      return 0;
-
-    long i, j, k;
-
-    out_file_stream << ".model " << name << endl;
-    out_file_stream << ".inputs ";
-    for (i = 0; i < inputs.size(); i++){
-      out_file_stream << " \\" << endl << " " << inputs[i]->name;
-    }
-    out_file_stream << endl;
-    out_file_stream << ".outputs ";
-    for (i = 0; i < outputs.size(); i++){
-      out_file_stream << " \\" << endl << " " << outputs[i]->name;
-    }
-    out_file_stream << endl;
-    for (i = 0; i < ffs.size(); i++){
-      out_file_stream << ".latch " << ffs[i]->inputs[0]->name << " " << ffs[i]->name << endl;
-    }
-    WriteBlifBody(out_file_stream);
-
-    out_file_stream << ".end" << endl;
-    out_file_stream << endl;
-
-    out_file_stream.close();
-    return 0;
-  }
-
-  int Circuit::WriteBlifBody(ostream &body) {
-    long i, j, k;
-
-    for (i = 0; i < all_nodes.size(); i++) {
-      Node *node = all_nodes[i];
-      if (node->type == NODE_ONE) {
-        body << ".names " << node->name << endl << "1" << endl;
-        continue;
-      }
-      if (node->type == NODE_ZERO) {
-        body << ".names " << node->name << endl << "0" << endl;
-        continue;
-      }
-      if (node->is_input)
-        continue;
-      if (node->type == NODE_DFF)
-        continue;
-      body << ".names";
-      for (j = 0; j < node->inputs.size(); j++)
-        body << " " << node->inputs[j]->name;
-      body << " " << node->name << endl;
-      switch (node->type) {
-        case NODE_BUF:
-          body << "1 1" << endl;
-          break;
-        case NODE_NOT:
-          body << "1 0" << endl;
-          break;
-        case NODE_AND:
-          for (k = 0; k < node->inputs.size(); k++)
-            body << "1";
-          body << " 1" << endl;
-          break;
-        case NODE_NAND:
-          for (k = 0; k < node->inputs.size(); k++)
-            body << "1";
-          body << " 0" << endl;
-          break;
-        case NODE_OR:
-          for (k = 0; k < node->inputs.size(); k++)
-            body << "0";
-          body << " 0" << endl;
-          break;
-        case NODE_NOR:
-          for (k = 0; k < node->inputs.size(); k++)
-            body << "0";
-          body << " 1" << endl;
-          break;
-        case NODE_XOR:
-          switch (node->inputs.size()) {
-            case 2:
-              body << "10 1" << endl;
-              body << "01 1" << endl;
-              break;
-            case 3:
-              body << "100 1" << endl;
-              body << "010 1" << endl;
-              body << "001 1" << endl;
-              body << "111 1" << endl;
-              break;
-              // TODO: for larger XORs
-          }
-          break;
-        case NODE_XNOR:
-          switch (node->inputs.size()) {
-            case 2:
-              body << "10 0" << endl;
-              body << "01 0" << endl;
-              break;
-            case 3:
-              body << "100 0" << endl;
-              body << "010 0" << endl;
-              body << "001 0" << endl;
-              body << "111 0" << endl;
-              break;
-              // TODO: for larger XNORs
-          }
-          break;
-        case NODE_AND2_NP:
-          body << "01 1" << endl;
-          break;
-        case NODE_NAND2_NP:
-          body << "01 0" << endl;
-          break;
-        case NODE_AND2_PN:
-          body << "10 1" << endl;
-          break;
-        case NODE_NAND2_PN:
-          body << "10 0" << endl;
-          break;
-        case NODE_BLIF:
-          for (k = 0; k < ((BlifNode *) node)->str_values.size(); k++)
-            body << ((BlifNode *) node)->str_values[k] << endl;
-          //for (set<uint64_t>::iterator iter = ((BlifNode*)node)->coded_values.begin(); iter != ((BlifNode*)node)->coded_values.end() ; ++iter)
-          //  out_file_stream << hex << *iter << endl;
-          break;
-        default:
-          for (k = 0; k < node->inputs.size(); k++)
-            body << "-";
-          body << " 0" << endl;
-          body << "# err " << node->type << endl;
-          // this case should not happen
-          // TODO: check why this case has happened
-      }
-    }
-
-    return 0;
-  }
-
   Circuit *Circuit::GetDuplicate(string input_prefix, string output_prefix, string internal_prefix) {
     // TODO: different prefix for ffs?
     Circuit *new_cir = new Circuit;
@@ -1585,38 +1650,5 @@ namespace nodecircuit {
     return new_cir;
   }
 
-  int Circuit::ReadBlif(string filename, bool simplify, bool levelize_sort, bool ignore_1input) {
-    Clear();
 
-    FILE *infile = fopen(filename.c_str(), "r");
-    if (!infile) {
-      ERR("cannot open input file: " + filename);
-      return 0;
-    }
-    ofstream parser_log("parser.log");
-    blifparser::BL_LEXER ilexer(infile, parser_log);
-    ilexer.circuit = this;
-    ilexer.bl_lex();
-    fclose(infile);
-    parser_log.close();
-
-    system("rm parser.log");
-
-    CreateCodedBlifValues();
-    ConvertEquivalentTypeBlif();
-
-    if (simplify) {
-      LevelizeSortTopological(false);
-      RemoveBufNot();
-      Simplify();
-      LevelizeSortTopological(false);
-    }
-    else if (levelize_sort) {
-      LevelizeSortTopological(ignore_1input);
-    }
-
-    SetIndexes();
-
-    return 1;
-  }
 }

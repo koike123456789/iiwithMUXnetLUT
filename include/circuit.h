@@ -3,6 +3,7 @@
 
 #include "global.h"
 #include "node.h"
+#include "applyABC.h"
 
 namespace nodecircuit {
 
@@ -68,8 +69,9 @@ namespace nodecircuit {
     int Simplify(NodeVector& target_nodes);
     int ApplyInOutSimplify(ValVector &input_vals, ValVector &output_vals);
 
-    std::string genQBF_withMUX(int lutsize);
-    void write_genqbfblif(std::string filename, int lutsize, int muxsize);
+    std::string genQBF_withMUX(int lutsize, int muxsize, bool fUseout = false, bool fverbose = false);
+    void write_genqbfblif(std::string filename, int lutsize, int muxsize, bool fUseout = false);
+    void print_circuitinfo();
 
   public:
     std::string name;
@@ -80,13 +82,6 @@ namespace nodecircuit {
     // mapping node names to nodes
     std::map<std::string, Node *> all_nodes_map;
 
-
-    // ==================== from here implemented koike ================================
-    std::string outfile;
-    std::vector<std::string> vinputs_original_lut, vinputs_original_mux;
-    std::vector<std::string> vinputs_original_checkonehot, vinputs_original_checkatmost1;
-
-
     // find a node by name, returns NULL if not found
     Node *GetNode(std::string name) {
       std::map<std::string, Node *>::iterator it = all_nodes_map.find(name);
@@ -94,13 +89,20 @@ namespace nodecircuit {
         return it->second;
       return NULL;
     }
+
+    // ==================== from here implemented koike ================================
+    long npara_ctl, npara_lut;
+    std::string outfile;
+    std::vector<std::string> vinputs_original_lut, vinputs_original_mux;
+    std::vector<std::string> vinputs_original_checkonehot, vinputs_original_checkatmost1;
+
+
   };
 
   std::vector<std::string> make_LUT(std::string filename, long ninput);
   std::vector<std::string> make_MUX(std::string filenmae, long ninput);
   std::vector<std::string> make_checkonehot(std::string filename, long ninput, bool atmost1 = false);
 
-  std::string apply_abcopt(std::string filename, int ntime = 10);
 }
 
 #endif // _CIRCUIT_H_INCLUDED
