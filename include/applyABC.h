@@ -3,10 +3,13 @@
 
 #include "global.h"
 
-std::string Abc_qbf(std::string filename, long npara);
-std::string separate_qbfans(std::string filename, long npara_ctl, long npara_lut);
+// #include <base/abc/abc.h>
+// #include <base/main/main.h>
+// #include <base/main/mainInt.h>
 
-boost::dynamic_bitset<> read_qbf_ans(std::string filename);
+// using namespace ABC;
+
+std::string Abc_qbf(std::string filename, long npara_ctl, long npara_lut, bool fverbose, bool fusetwostep);
 std::string apply_abcopt(std::string filename, int ntime = 10);
 
 

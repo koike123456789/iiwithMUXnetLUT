@@ -26,6 +26,7 @@ using namespace std;
 
 #define PrintVar(var) std::cout << #var << "=" << var << std::endl;
 #define SUBDIR (string)"./tmpfile/"
+#define MAX_MUXSIZE (500)
 
 inline void ERR(std::string err_msg) {
   std::cerr << err_msg << std::endl;

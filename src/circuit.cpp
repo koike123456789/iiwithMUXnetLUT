@@ -5,22 +5,18 @@ using namespace std;
 
 #include "blif_parser.h"
 
-#define MAX_MUXSIZE (500)
-
 namespace nodecircuit {
   string Circuit::genQBF_withMUX(int lutsize, int muxsize, bool fUseout, bool fverbose){
     if(muxsize < 0){muxsize = ffs.size();}
-
-    for(int i = 0 ; i < ffs.size() ; i++){
-      cout << ffs[i]->name << " " << ffs[i]->inputs[0]->type << endl;
-    }
-
+    // for(int i = 0 ; i < ffs.size() ; i++){
+    //   cout << ffs[i]->name << " " << ffs[i]->inputs[0]->type << endl;
+    // }
     if(lutsize > ffs.size()){ 
       ERR("ERR : lutsize exceeds number of ffs");
       lutsize = ffs.size();
       ERR("| lutsize is set to be " + to_string(lutsize) + "(maximum)");
       }
-    if(muxsize > ffs.size() || lutsize > muxsize){
+    if(muxsize > ffs.size() || lutsize > muxsize || muxsize > MAX_MUXSIZE){
       ERR("ERR : muxsize exceeds number of ffs (or MAX_MUXSIZE) or less than lutsize");
       muxsize = (ffs.size() > MAX_MUXSIZE) ? MAX_MUXSIZE : ffs.size();
       ERR("| muxsize is set to be " + to_string(muxsize) + "(maximum)");
@@ -52,9 +48,9 @@ namespace nodecircuit {
     vinputs_original_checkatmost1 = make_checkonehot(checkatmost1_file,lutsize,true);
   // make optimized circuit with abc
     string opt_lut_file = apply_abcopt(lut_file);
-    string opt_mux_file = apply_abcopt(mux_file);
-    string opt_checkonehot_file = apply_abcopt(checkonehot_file);
-    string opt_checkatmost1_file = apply_abcopt(checkatmost1_file);
+    string opt_mux_file = apply_abcopt(mux_file,30);
+    string opt_checkonehot_file = apply_abcopt(checkonehot_file,30);
+    string opt_checkatmost1_file = apply_abcopt(checkatmost1_file,30);
   // write genqbf with mux net blif file
     string main_file = name + "_main.blif"; 
     write_genqbfblif(main_file,lutsize,muxsize,fUseout);
@@ -515,12 +511,6 @@ namespace nodecircuit {
           break;
         case NODE_NAND2_PN:
           body << "10 0" << endl;
-          break;
-        case NODE_ONE:
-          body << "1" << endl;
-          break;
-        case NODE_ZERO:
-          body << "0" << endl;
           break;
         case NODE_BLIF:
           for (k = 0; k < ((BlifNode *) node)->str_values.size(); k++)

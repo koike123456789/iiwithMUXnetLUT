@@ -211,6 +211,7 @@ switch (mode) {
               circuit->all_nodes.push_back(current_node);
               circuit->all_nodes_map[current_node->name] = current_node;
             }
+            current_node->is_ff =true;
             current_node->type = NODE_DFF;
             circuit->ffs.push_back(current_node);
             current_node->inputs.push_back(cur_nodes[0]);
