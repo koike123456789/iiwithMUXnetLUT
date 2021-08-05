@@ -56,19 +56,18 @@ int main(int argc , char* argv[]){
     std::string outfile = argv[optind+1];
     nodecircuit::Circuit circuit1;
     circuit1.ReadBlif(infile,false);
+    if(muxsize < 0){ muxsize = circuit1.ffs.size();}
     circuit1.outfile = outfile;
 
     string opt_filename = circuit1.genQBF_withMUX(lutsize,muxsize,fUseout,fverbose);
     if(fsolveqbf){
-        cout << "START solve QBF to find inductive invariant" << endl;
-        long npara_ctl = circuit1.npara_ctl;
-        long npara_lut = circuit1.npara_lut;
-        // long npara_total = npara_ctl + npara_lut;
-        string qbflogfile = Abc_qbf(opt_filename,npara_ctl,npara_lut,fverbose,fusetwostep);
-        cout << "FINISH solve QBF to find inductive invariant" << endl;
+        // cout << "START solve QBF to find inductive invariant" << endl;
+        // long npara_ctl = circuit1.npara_ctl;
+        // long npara_lut = circuit1.npara_lut;
+        // cout << "FINISH solve QBF to find inductive invariant" << endl;
         QBFinfo qbf_ii;
-        qbf_ii.separate_qbfans(qbflogfile,npara_ctl,npara_lut,fusetwostep);
-        qbf_ii.add_const_notselectffs();
+        qbf_ii.setsize(lutsize,muxsize);
+        qbf_ii.main(opt_filename);
     }
     return 0 ; 
 }

@@ -39,8 +39,6 @@ namespace nodecircuit {
       is_ff = false;
       level = -1; // not levelized yet!
       index = -1;
-      // flag_X = false;
-      // ff_to_input = false;
     }
 
     virtual ~Node() {}
@@ -51,10 +49,6 @@ namespace nodecircuit {
     bool is_input;
     bool is_output;
     bool is_ff;
-    // bool flag_X;
-    // bool ff_to_input;
-
-
 
     NodeVector inputs;  // fanins  of the node
     NodeVector outputs; // fanouts of the node
